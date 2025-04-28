@@ -11,6 +11,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>  
 {
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "MinimalRestAPI",
+        Version = "v1",
+        Description = "API for managing weather forecasts."
+    });
+
     options.AddSecurityDefinition("oauth2", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.OAuth2,
@@ -47,6 +54,9 @@ builder.Services.AddSwaggerGen(options =>
     // Add the AuthorizeCheckOperationFilter to check for authorization attributes on endpoints
     // This will ensure that the Swagger UI shows the authorization button for endpoints that require authentication
     options.OperationFilter<AuthorizeCheckOperationFilter>();    
+
+    // Generate YAML output
+    options.UseAllOfToExtendReferenceSchemas();
 });
 
 // Add services to the container.
@@ -148,11 +158,5 @@ app.UseIdentityServer(); // Enable IdentityServer middleware
 app.UseAuthentication(); // Enable authentication middleware
 app.UseAuthorization(); // Enable authorization middleware
 app.MapWeatherForecastEndpoints(); // Register the WeatherForecast endpoints
-
-// Log all registered endpoints
-foreach (var endpoint in app.Services.GetRequiredService<IEndpointRouteBuilder>().DataSources.SelectMany(ds => ds.Endpoints))
-{
-    Console.WriteLine(endpoint.DisplayName);
-}
 
 app.Run();

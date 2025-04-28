@@ -1,0 +1,264 @@
+openapi: 3.0.4
+info:
+  title: MinimalRestAPI
+  description: API for managing weather forecasts.
+  version: v1
+paths:
+  /weatherforecast:
+    get:
+      tags:
+        - MinimalRestAPI
+      summary: Retrieves the weather forecast for the next 5 days.
+      description: 'This endpoint provides a list of weather forecasts for the next 5 days, including temperature and summary.'
+      operationId: GetWeatherForecast
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WeatherForecast'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - MinimalRestAPI
+      summary: Creates a new weather forecast.
+      description: This endpoint allows authenticated users to create a new weather forecast.
+      operationId: CreateWeatherForecast
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/WeatherForecast'
+            example:
+              date: '2025-04-24'
+              temperatureC: 25
+              summary: Sunny
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeatherForecast'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      security:
+        - Bearer: [ ]
+        - Bearer: [ ]
+  /weatherforecast/legacy:
+    get:
+      tags:
+        - MinimalRestAPI
+      description: This endpoint is deprecated. Use /weatherforecast instead.
+      operationId: GetLegacyWeatherForecast
+      responses:
+        '200':
+          description: OK
+      deprecated: true
+  '/weatherforecast/{date}':
+    put:
+      tags:
+        - MinimalRestAPI
+      summary: Updates an existing weather forecast.
+      description: This endpoint allows authenticated users to update an existing weather forecast.
+      operationId: UpdateWeatherForecast
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: date
+          in: path
+          description: The date of the weather forecast to update.
+          required: true
+          schema:
+            type: string
+            format: date
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/WeatherForecast'
+            example:
+              date: '2025-04-24'
+              temperatureC: 30
+              summary: Partly Cloudy
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeatherForecast'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      security:
+        - Bearer: [ ]
+        - Bearer: [ ]
+    delete:
+      tags:
+        - MinimalRestAPI
+      summary: Deletes a weather forecast.
+      description: This endpoint allows authenticated users to delete a weather forecast by date.
+      operationId: DeleteWeatherForecast
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: date
+          in: path
+          description: The date of the weather forecast to delete.
+          required: true
+          schema:
+            type: string
+            format: date
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeatherForecast'
+            example:
+              date: '2025-04-24'
+              temperatureC: 30
+              summary: Partly Cloudy
+        required: true
+      responses:
+        '204':
+          description: No Content
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      security:
+        - Bearer: [ ]
+        - Bearer: [ ]
+components:
+  schemas:
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        status:
+          type: integer
+          format: int32
+          nullable: true
+        detail:
+          type: string
+          nullable: true
+        instance:
+          type: string
+          nullable: true
+      additionalProperties: { }
+    WeatherForecast:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        temperatureC:
+          type: integer
+          format: int32
+        summary:
+          type: string
+          nullable: true
+        temperatureF:
+          type: integer
+          format: int32
+          readOnly: true
+      additionalProperties: false
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://localhost:5001/connect/token
+          scopes:
+            api1: Access MinimalRestAPI
+security:
+  - oauth2:
+      - api1

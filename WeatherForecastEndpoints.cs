@@ -123,6 +123,33 @@ public static class WeatherForecastEndpoints
                     Format = "date"
                 }
             });
+
+            // RequestBody Example
+            operation.RequestBody = new Microsoft.OpenApi.Models.OpenApiRequestBody
+            {
+                Required = true,
+                Content = new Dictionary<string, Microsoft.OpenApi.Models.OpenApiMediaType>
+                {
+                    ["application/json"] = new Microsoft.OpenApi.Models.OpenApiMediaType
+                    {
+                        Schema = new Microsoft.OpenApi.Models.OpenApiSchema
+                        {
+                            Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                            {
+                                Type = Microsoft.OpenApi.Models.ReferenceType.Schema,
+                                Id = "WeatherForecast"
+                            }
+                        },
+                        Example = new Microsoft.OpenApi.Any.OpenApiObject
+                        {
+                            ["date"] = new Microsoft.OpenApi.Any.OpenApiString("2025-04-24"),
+                            ["temperatureC"] = new Microsoft.OpenApi.Any.OpenApiInteger(30),
+                            ["summary"] = new Microsoft.OpenApi.Any.OpenApiString("Partly Cloudy")
+                        }
+                    }
+                }
+            };
+
             return operation;
         });
 
@@ -153,6 +180,33 @@ public static class WeatherForecastEndpoints
                     Format = "date"
                 }
             });
+
+            // Add RequestBody Example
+            operation.RequestBody = new Microsoft.OpenApi.Models.OpenApiRequestBody
+            {
+                Required = true,
+                Content = new Dictionary<string, Microsoft.OpenApi.Models.OpenApiMediaType>
+                {
+                    ["application/json"] = new Microsoft.OpenApi.Models.OpenApiMediaType
+                    {
+                        Schema = new Microsoft.OpenApi.Models.OpenApiSchema
+                        {
+                            Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                            {
+                                Type = Microsoft.OpenApi.Models.ReferenceType.Schema,
+                                Id = "WeatherForecast"
+                            }
+                        },
+                        Example = new Microsoft.OpenApi.Any.OpenApiObject
+                        {
+                            ["date"] = new Microsoft.OpenApi.Any.OpenApiString("2025-04-24"),
+                            ["temperatureC"] = new Microsoft.OpenApi.Any.OpenApiInteger(30),
+                            ["summary"] = new Microsoft.OpenApi.Any.OpenApiString("Partly Cloudy")
+                        }
+                    }
+                }
+            };
+
             return operation;
         });
     }
@@ -161,7 +215,10 @@ public static class WeatherForecastEndpoints
 /// <summary>
 /// Represents a weather forecast.
 /// </summary>
-public record WeatherForecast(DateOnly Date, [Range(-50, 50)] int TemperatureC, [StringLength(100)] string? Summary)
+public record WeatherForecast(
+    DateOnly Date,
+    [Range(-50, 50)] int TemperatureC,
+    [StringLength(100)] string? Summary)
 {
     /// <summary>
     /// Gets the temperature in Fahrenheit.
