@@ -1,5 +1,6 @@
 using Duende.IdentityServer.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -15,7 +16,16 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "MinimalRestAPI",
         Version = "v1",
-        Description = "API for managing weather forecasts."
+        Description =         "### MinimalRestAPI\n\n" +
+        "An internal API for managing weather forecasts. This API is not intended for external use and is rate-limited to 100 requests per minute for free users.\n\n" +
+        "#### Features:\n" +
+        "- Retrieve weather forecasts for the next 5 days.\n" +
+        "- Create new weather forecasts.\n" +
+        "- Update existing weather forecasts.\n" +
+        "- Delete weather forecasts.\n\n" +
+        "#### Notes:\n" +
+        "- Authentication is required for most operations.\n" +
+        "- Ensure proper usage of the API within the defined rate limits."
     });
 
     options.AddSecurityDefinition("oauth2", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
@@ -31,6 +41,19 @@ builder.Services.AddSwaggerGen(options =>
                     { "api1", "Access MinimalRestAPI" }
                 }
             }
+        }
+    });
+
+    options.MapType<ProblemDetails>(() => new Microsoft.OpenApi.Models.OpenApiSchema
+    {
+        Type = "object",
+        Properties = new Dictionary<string, Microsoft.OpenApi.Models.OpenApiSchema>
+        {
+            ["type"] = new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string" },
+            ["title"] = new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string" },
+            ["status"] = new Microsoft.OpenApi.Models.OpenApiSchema { Type = "integer", Format = "int32" },
+            ["detail"] = new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string" },
+            ["instance"] = new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string" }
         }
     });
 

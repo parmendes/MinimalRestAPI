@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 /// <summary>
@@ -40,6 +39,9 @@ public static class WeatherForecastEndpoints
         {
             operation.Summary = "Retrieves the weather forecast for the next 5 days.";
             operation.Description = "This endpoint provides a list of weather forecasts for the next 5 days, including temperature and summary.";
+            operation.Responses["200"].Description = "A list of weather forecasts.";
+            operation.Responses["400"].Description = "Bad request. The input parameters are invalid.";
+            operation.Responses["500"].Description = "Internal server error. Something went wrong on the server.";
             return operation;
         });
 
@@ -93,11 +95,16 @@ public static class WeatherForecastEndpoints
                     }
                 }
             };
+            operation.Responses["201"].Description = "Weather forecast created successfully.";
+            operation.Responses["400"].Description = "Bad request. The input parameters are invalid.";
+            operation.Responses["401"].Description = "Unauthorized. The user is not authenticated.";
+            operation.Responses["500"].Description = "Internal server error. Something went wrong on the server.";
+
             return operation;
         });
 
         // PUT endpoint (requires authentication)
-        endpoints.MapPut("/weatherforecast/{date}", [Authorize(Policy = "ApiScope")] (DateOnly date, WeatherForecast updatedForecast) =>
+        endpoints.MapPut("/weatherforecast/{date}", [Authorize(Policy = "ApiScope")] (WeatherForecast updatedForecast) =>
         {
             return Results.Ok(updatedForecast);
         })
@@ -150,6 +157,12 @@ public static class WeatherForecastEndpoints
                 }
             };
 
+            operation.Responses["200"].Description = "Weather forecast updated successfully.";
+            operation.Responses["400"].Description = "Bad request. The input parameters are invalid.";
+            operation.Responses["401"].Description = "Unauthorized. The user is not authenticated.";
+            operation.Responses["404"].Description = "Not found. The weather forecast for the specified date was not found.";
+            operation.Responses["500"].Description = "Internal server error. Something went wrong on the server.";
+
             return operation;
         });
 
@@ -181,32 +194,12 @@ public static class WeatherForecastEndpoints
                 }
             });
 
-            // Add RequestBody Example
-            operation.RequestBody = new Microsoft.OpenApi.Models.OpenApiRequestBody
-            {
-                Required = true,
-                Content = new Dictionary<string, Microsoft.OpenApi.Models.OpenApiMediaType>
-                {
-                    ["application/json"] = new Microsoft.OpenApi.Models.OpenApiMediaType
-                    {
-                        Schema = new Microsoft.OpenApi.Models.OpenApiSchema
-                        {
-                            Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                            {
-                                Type = Microsoft.OpenApi.Models.ReferenceType.Schema,
-                                Id = "WeatherForecast"
-                            }
-                        },
-                        Example = new Microsoft.OpenApi.Any.OpenApiObject
-                        {
-                            ["date"] = new Microsoft.OpenApi.Any.OpenApiString("2025-04-24"),
-                            ["temperatureC"] = new Microsoft.OpenApi.Any.OpenApiInteger(30),
-                            ["summary"] = new Microsoft.OpenApi.Any.OpenApiString("Partly Cloudy")
-                        }
-                    }
-                }
-            };
-
+            operation.Responses["204"].Description = "No content. The weather forecast was deleted successfully.";
+            operation.Responses["400"].Description = "Bad request. The input parameters are invalid.";
+            operation.Responses["401"].Description = "Unauthorized. The user is not authenticated.";
+            operation.Responses["404"].Description = "Not found. The weather forecast for the specified date was not found.";
+            operation.Responses["500"].Description = "Internal server error. Something went wrong on the server.";
+            
             return operation;
         });
     }
