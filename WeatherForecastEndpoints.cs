@@ -60,6 +60,33 @@ public static class WeatherForecastEndpoints
             return operation;
         });
 
+// GET endpoint for version v0.9 (legacy)
+        endpoints.MapGet("/v0.9/weatherforecast", [AllowAnonymous] () =>
+        {
+            var summaries = new[] { "Cold", "Warm", "Hot" };
+
+            var forecast = Enumerable.Range(1, 3).Select(index =>
+                new WeatherForecast(
+                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+                    Random.Shared.Next(-10, 30),
+                    summaries[Random.Shared.Next(summaries.Length)]
+                )).ToArray();
+
+            return Results.Ok(forecast);
+        })
+        .WithName("GetWeatherForecastV0_9")
+        .Produces<WeatherForecast[]>(200)
+        .Produces(500, typeof(ProblemDetails))
+        .WithOpenApi(operation =>
+        {
+            operation.Summary = "Legacy weather forecast (v0.9)";
+            operation.Description = "This is a legacy version of the weather forecast endpoint (before v1). Returns 3 days only.";
+            operation.Deprecated = true;
+            operation.Responses["200"].Description = "Weather forecast (legacy format).";
+            operation.Responses["500"].Description = "Internal server error.";
+            return operation;
+        });
+
 // GET legacy endpoint (public, no authentication required)
         endpoints.MapGet("/weatherforecast/legacy", [AllowAnonymous] () =>
         {

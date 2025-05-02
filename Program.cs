@@ -17,7 +17,7 @@ builder.Services.AddSwaggerGen(options =>
     options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
         Title = "MinimalRestAPI",
-        Version = "v1",
+        Version = "v2.0",
         Description =         "### MinimalRestAPI\n\n" +
         "An internal API for managing weather forecasts. This API is not intended for external use and is rate-limited to 100 requests per minute for free users.\n\n" +
         "#### Features:\n" +
