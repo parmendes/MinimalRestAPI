@@ -1,8 +1,10 @@
+using System.Reflection;
 using Duende.IdentityServer.Models;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,8 +80,8 @@ builder.Services.AddSwaggerGen(options =>
     // This will ensure that the Swagger UI shows the authorization button for endpoints that require authentication
     options.OperationFilter<AuthorizeCheckOperationFilter>();    
 
-    // Generate YAML output
-    options.UseAllOfToExtendReferenceSchemas();
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));    
 });
 
 // Add services to the container.
@@ -97,6 +99,12 @@ builder.Services.AddAuthentication("Bearer")
 // This policy requires the user to be authenticated and have the "api1" scope
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy("AdminOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim("role", "admin");
+    });
+
     options.AddPolicy("ApiScope", policy =>
     {
         policy.RequireAuthenticatedUser();
