@@ -1,193 +1,70 @@
-using System.Reflection;
-using Duende.IdentityServer.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using Swashbuckle.AspNetCore.SwaggerGen;
+using Asp.Versioning.ApiExplorer;
+using Asp.Versioning.Conventions;
+using AspNetCoreRateLimit;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ==================== Services Configuration ====================
-
-// Add Swagger/OpenAPI configuration
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>  
-{
-    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
-    {
-        Title = "MinimalRestAPI",
-        Version = "v2.0",
-        Description =         "### MinimalRestAPI\n\n" +
-        "An internal API for managing weather forecasts. This API is not intended for external use and is rate-limited to 100 requests per minute for free users.\n\n" +
-        "#### Features:\n" +
-        "- Retrieve weather forecasts for the next 5 days.\n" +
-        "- Create new weather forecasts.\n" +
-        "- Update existing weather forecasts.\n" +
-        "- Delete weather forecasts.\n\n" +
-        "#### Notes:\n" +
-        "- Authentication is required for most operations.\n" +
-        "- Ensure proper usage of the API within the defined rate limits."
-    });
-
-    options.AddSecurityDefinition("oauth2", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-    {
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.OAuth2,
-        Flows = new Microsoft.OpenApi.Models.OpenApiOAuthFlows
-        {
-            ClientCredentials = new Microsoft.OpenApi.Models.OpenApiOAuthFlow
-            {
-                TokenUrl = new Uri("https://localhost:5001/connect/token"), // IdentityServer token endpoint
-                Scopes = new Dictionary<string, string>
-                {
-                    { "api1", "Access MinimalRestAPI" }
-                }
-            }
-        }
-    });
-
-    options.MapType<ProblemDetails>(() => new Microsoft.OpenApi.Models.OpenApiSchema
-    {
-        Type = "object",
-        Properties = new Dictionary<string, Microsoft.OpenApi.Models.OpenApiSchema>
-        {
-            ["type"] = new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string" },
-            ["title"] = new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string" },
-            ["status"] = new Microsoft.OpenApi.Models.OpenApiSchema { Type = "integer", Format = "int32" },
-            ["detail"] = new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string" },
-            ["instance"] = new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string" }
-        }
-    });
-
-    // Add the security requirement for the API
-    // This will require the client to provide a token for the "api1" scope
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "oauth2"
-                }
-            },
-            new[] { "api1" }
-        }
-    });
-
-    // Add the AuthorizeCheckOperationFilter to check for authorization attributes on endpoints
-    // This will ensure that the Swagger UI shows the authorization button for endpoints that require authentication
-    options.OperationFilter<AuthorizeCheckOperationFilter>();    
-
-    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));    
-});
-
-// Add services to the container.
-builder.Services.AddAuthentication("Bearer")
-    .AddJwtBearer("Bearer", options =>
-    {
-        options.Authority = "https://localhost:5001"; // Seu IdentityServer
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateAudience = false
-        };
-    });
-
-// Add authorization policies
-// This policy requires the user to be authenticated and have the "api1" scope
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOnly", policy =>
-    {
-        policy.RequireAuthenticatedUser();
-        policy.RequireClaim("role", "admin");
-    });
-
-    options.AddPolicy("ApiScope", policy =>
-    {
-        policy.RequireAuthenticatedUser();
-        policy.RequireClaim("scope", "api1"); // 
-    });
-});
-
-// Add IdentityServer configuration
-// This configures IdentityServer with in-memory clients, API scopes, and identity resources
-builder.Services.AddIdentityServer()
-    .AddInMemoryClients(new List<Client>
-    {
-        new Client
-        {
-            ClientId = "minimalrestapi-client",
-            AllowedGrantTypes = GrantTypes.ClientCredentials,
-            ClientSecrets =
-            {
-                new Secret("your-client-secret".Sha256())
-            },
-            AllowedScopes = { "api1" }
-        }
-    })
-    .AddInMemoryApiScopes(new List<ApiScope>
-    {
-        new ApiScope("api1", "Access MinimalRestAPI")
-    })
-    .AddInMemoryIdentityResources(new List<IdentityResource>
-    {
-        new IdentityResources.OpenId(),
-        new IdentityResources.Profile()
-    })
-    .AddDeveloperSigningCredential(); // For development only
-
-// Configure CORS policy for Swagger UI
-// This allows the Swagger UI to access the API from a different origin (e.g., localhost:5009)
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowSwaggerUI", policy =>
-    {
-        policy.WithOrigins("http://localhost:5009") // Allow Swagger UI origin
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials(); // Allow credentials for token requests
-    });
-});
+// Configuration organized into extension methods for better readability and maintainability
+builder.Services.AddApiVersioningSupport(); // Configure API versioning and API explorer for Swagger documentation
+builder.Services.AddSwaggerGen(); // Add Swagger generator to the service collection
+builder.Services.ConfigureOptions<ConfigureSwaggerGenOptions>(); // Configure SwaggerGen options
+builder.Services.AddAuthenticationAndAuthorization(); // Configure authentication and authorization services
+builder.Services.AddCustomIdentityServer(); // Configure IdentityServer with in-memory clients, API scopes, and identity resources
+builder.Services.AddCorsPolicy(); // Configure CORS policy to allow requests from the Swagger UI
+builder.Services.AddRateLimiting(builder.Configuration); // Configure rate limiting for the API
 
 // ==================== Application Configuration ====================
-
 var app = builder.Build();
 
-// Log incoming requests for debugging
-app.Use(async (context, next) =>
-{
-    Console.WriteLine($"Request: {context.Request.Method} {context.Request.Path}");
-    foreach (var header in context.Request.Headers)
-    {
-        Console.WriteLine($"{header.Key}: {header.Value}");
-    }
-    await next();
-});
+// Define the API version set
+var versionSet = app.NewApiVersionSet()
+    .HasApiVersion(1.0)
+    .HasApiVersion(2.0)
+    .ReportApiVersions() // Report API versions in the response headers
+    .Build();
+
+RouteGroupBuilder versionedGroup = app.MapGroup("/api/v{version:apiVersion}/weatherforecast")
+            .WithApiVersionSet(versionSet)
+            .RequireRateLimiting("weatherforecast") // Apply rate limiting policy
+            .WithTags("WeatherForecast") // Tag for grouping in Swagger UI
+            ;
+
+versionedGroup.MapWeatherForecastEndpoints(); // Register the WeatherForecast endpoints
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        IReadOnlyList<ApiVersionDescription> description = app.DescribeApiVersions();
+
+        foreach (ApiVersionDescription desc in description)
+        {
+            options.SwaggerEndpoint($"/swagger/{desc.GroupName}/swagger.json", desc.GroupName.ToUpperInvariant());
+            options.SwaggerEndpoint($"/swagger/{desc.GroupName}/swagger.yaml", desc.GroupName.ToUpperInvariant()); //Serve the YAML file.
+        }
+
+        // options.SwaggerEndpoint("/swagger/v1/swagger.yaml", "MinimalRestAPI v1 (YAML)"); //Serve the YAML file.
+        // options.SwaggerEndpoint("/swagger/v1/swagger.json", "MinimalRestAPI v1 (JSON)");
+
+        // options.SwaggerEndpoint("/swagger/v2/swagger.json", "MinimalRestAPI v2 (JSON)");
+        // options.SwaggerEndpoint("/swagger/v2/swagger.yaml", "MinimalRestAPI v2 (YAML)"); //Serve the YAML file.
+        
+        // c.OAuthClientId("minimalrestapi-client");
+        // c.OAuthClientSecret("your-client-secret");
+        // c.OAuthUsePkce(); // opcional para client credentials
+    });
 }
 
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.yaml", "MinimalRestAPI v1 (YAML)"); //Serve the YAML file.
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "MinimalRestAPI v1 (JSON)");
-    c.OAuthClientId("minimalrestapi-client");
-    c.OAuthClientSecret("your-client-secret");
-    c.OAuthUsePkce(); // opcional para client credentials
-});
-
-
-app.UseHttpsRedirection(); // Enable HTTPS redirection
+//app.UseHttpsRedirection(); // Enable HTTPS redirection
 app.UseCors("AllowSwaggerUI"); // Apply the CORS policy
-app.UseIdentityServer(); // Enable IdentityServer middleware	
-app.UseAuthentication(); // Enable authentication middleware
-app.UseAuthorization(); // Enable authorization middleware
-app.MapWeatherForecastEndpoints(); // Register the WeatherForecast endpoints
+//app.UseIdentityServer(); // Enable IdentityServer middleware	
+//app.UseAuthentication(); // Enable authentication middleware
+//app.UseAuthorization(); // Enable authorization middleware
+app.UseIpRateLimiting(); // Middleware for rate limit
+
+
 
 app.Run();

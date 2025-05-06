@@ -1,7 +1,9 @@
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using Asp.Versioning.Builder;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel;
+using Microsoft.AspNetCore.RateLimiting;
 
 /// <summary>
 /// Provides extension methods to map WeatherForecast-related endpoints.
@@ -11,20 +13,33 @@ public static class WeatherForecastEndpoints
     /// <summary>
     /// Maps the WeatherForecast endpoints to the specified endpoint route builder.
     /// </summary>
-    /// <param name="endpoints">The <see cref="IEndpointRouteBuilder"/> to add the endpoints to.</param>
-    public static void MapWeatherForecastEndpoints(this IEndpointRouteBuilder endpoints)
+    /// <param name="app">The route builder used to register the endpoints.</param>
+    public static void MapWeatherForecastEndpoints(this IEndpointRouteBuilder app)
     {
-        var summaries = new[]
-        {
-            "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-        };
+        // Map the public endpoints (unauthenticated)
+        // The endpoints are accessible without authentication and are open to all users
+        MapPublicEndpoints(app);
 
-// GET endpoint (public, no authentication required)
-        endpoints.MapGet("/weatherforecast", [AllowAnonymous] (
+        // Map the authenticated endpoints (Admin/User roles)
+        // The endpoints are protected by the [Authorize] attribute and require authentication
+        MapAuthenticatedEndpoints(app);
+    }
+
+    #region Public Endpoints
+
+    /// <summary>
+    /// Maps all public (unauthenticated) endpoints.
+    /// </summary>
+    private static void MapPublicEndpoints(IEndpointRouteBuilder app)
+    {
+        var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching" };
+
+        // Versioned GET endpoint for 5-day forecast (v1 and v2)
+        app.MapGet("/weatherforecast", [AllowAnonymous] (
+            [FromHeader(Name = "X-My-Custom-Header")] string? myHeaderValue,
             [FromQuery, DefaultValue(-20)] int minTemperature,
             [FromQuery, DefaultValue(55)] int maxTemperature) =>
         {
-            // Validação
             if (minTemperature >= maxTemperature)
             {
                 return Results.BadRequest(new ProblemDetails
@@ -40,146 +55,161 @@ public static class WeatherForecastEndpoints
                     DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
                     Random.Shared.Next(minTemperature, maxTemperature),
                     summaries[Random.Shared.Next(summaries.Length)]
-                ))
-                .ToArray();
+                )).ToArray();
 
             return Results.Ok(forecast);
         })
         .WithName("GetWeatherForecast")
-        .Produces<WeatherForecast[]>(200) // Response schema
-        .Produces(400, typeof(ProblemDetails)) // Bad request
-        .Produces(500, typeof(ProblemDetails)) // Internal server error
+        .MapToApiVersion(1.0)
+        .MapToApiVersion(2.0)
+        .Produces<WeatherForecast[]>(200)
+        .Produces(400, typeof(ProblemDetails))
+        .Produces(429, typeof(ProblemDetails))
+        .Produces(500, typeof(ProblemDetails))
         .WithOpenApi(operation =>
         {
             operation.Summary = "Retrieves the weather forecast for the next 5 days.";
-            operation.Description = "This endpoint provides a list of weather forecasts for the next 5 days, including temperature and summary.";
-            operation.Responses["200"].Description = "A list of weather forecasts.";
-            operation.Responses["400"].Description = "Bad request. The input parameters are invalid.";
-            operation.Responses["500"].Description = "Internal server error. Something went wrong on the server.";
-
+            operation.Description = "Returns a list of weather forecasts with temperatures and summaries.";
+            operation.Responses["200"].Description = "Successful operation.";
+            operation.Responses["400"].Description = "Invalid temperature range.";
+            operation.Responses["500"].Description = "Internal server error.";
             return operation;
         });
 
-// GET endpoint for version v0.9 (legacy)
-        endpoints.MapGet("/v0.9/weatherforecast", [AllowAnonymous] () =>
+        // New 3-day forecast only for version 2
+        app.MapGet("/weatherforecast3Days", [AllowAnonymous] () =>
         {
-            var summaries = new[] { "Cold", "Warm", "Hot" };
+            var shortSummaries = new[] { "Cold", "Warm", "Hot" };
 
             var forecast = Enumerable.Range(1, 3).Select(index =>
                 new WeatherForecast(
                     DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
                     Random.Shared.Next(-10, 30),
-                    summaries[Random.Shared.Next(summaries.Length)]
+                    shortSummaries[Random.Shared.Next(shortSummaries.Length)]
                 )).ToArray();
 
             return Results.Ok(forecast);
         })
-        .WithName("GetWeatherForecastV0_9")
+        .WithName("GetWeatherForecast3Days")
+        .MapToApiVersion(2.0)
         .Produces<WeatherForecast[]>(200)
+        .Produces(429, typeof(ProblemDetails))
         .Produces(500, typeof(ProblemDetails))
         .WithOpenApi(operation =>
         {
-            operation.Summary = "Legacy weather forecast (v0.9)";
-            operation.Description = "This is a legacy version of the weather forecast endpoint (before v1). Returns 3 days only.";
-            operation.Deprecated = true;
-            operation.Responses["200"].Description = "Weather forecast (legacy format).";
+            operation.Summary = "Retrieves a short-term 3-day weather forecast.";
+            operation.Description = "Newer version with limited 3-day forecast data.";
+            operation.Responses["200"].Description = "Successful operation.";
             operation.Responses["500"].Description = "Internal server error.";
             return operation;
         });
 
-// GET legacy endpoint (public, no authentication required)
-        endpoints.MapGet("/weatherforecast/legacy", [AllowAnonymous] () =>
-        {
-            return Results.Ok("This is a legacy endpoint.");
-        })
+        // Legacy endpoint (Deprecated)
+        app.MapGet("/weatherforecast/legacy", [AllowAnonymous] () =>
+            Results.Ok("This is a legacy endpoint.")
+        )
         .WithName("GetLegacyWeatherForecast")
+        .MapToApiVersion(1.0)
         .WithOpenApi(operation =>
         {
             operation.Deprecated = true;
-            operation.Description = "This endpoint is deprecated. Use /weatherforecast instead.";
+            operation.Summary = "Legacy endpoint (deprecated).";
+            operation.Description = "This endpoint is deprecated. Use '/weatherforecast' instead.";
             return operation;
         });
+    }
 
-// POST endpoint (requires authentication)
-        endpoints.MapPost("/weatherforecast/admin-endpoint", [Authorize(Policy = "AdminOnly")] (WeatherForecast forecast) =>
-        {
-            return Results.Created($"/weatherforecast/admin-endpoint/{forecast.Date}", forecast);
-        })
+    #endregion
+
+    #region Authenticated Endpoints
+
+    /// <summary>
+    /// Maps all authenticated endpoints (Admin/User roles).
+    /// </summary>
+    private static void MapAuthenticatedEndpoints(IEndpointRouteBuilder app)
+    {
+        // Admin-only POST
+        app.MapPost("/weatherforecast/admin-endpoint", [Authorize(Policy = "AdminOnly")] (WeatherForecast forecast) =>
+            Results.Created($"/weatherforecast/admin-endpoint/{forecast.Date}", forecast)
+        )
         .WithName("CreateWeatherForecastADMIN")
-        .Produces<WeatherForecast>(201) // Response schema
-        .Produces(400, typeof(ProblemDetails)) // Bad request
-        .Produces(401, typeof(ProblemDetails)) // Unauthorized
-        .Produces(500, typeof(ProblemDetails)) // Internal server error
+        .MapToApiVersion(1.0)
+        .MapToApiVersion(2.0)
+        .Produces<WeatherForecast>(201)
+        .Produces(400, typeof(ProblemDetails))
+        .Produces(401, typeof(ProblemDetails))
+        .Produces(429, typeof(ProblemDetails))
+        .Produces(500, typeof(ProblemDetails))
         .WithOpenApi(operation =>
         {
-            operation.Summary = "Creates a new weather forecast.";
-            operation.Description = "This endpoint allows authenticated users to create a new weather forecast.";
-            operation.Responses["201"].Description = "Weather forecast created successfully.";
-            operation.Responses["400"].Description = "Bad request. The input parameters are invalid.";
-            operation.Responses["401"].Description = "Unauthorized. The user is not authenticated.";
-            operation.Responses["500"].Description = "Internal server error. Something went wrong on the server.";
-
+            operation.Summary = "Creates a new weather forecast (Admin only).";
+            operation.Description = "Only users with Admin privileges can access this endpoint.";
+            operation.Responses["201"].Description = "Created successfully.";
+            operation.Responses["400"].Description = "Invalid input.";
+            operation.Responses["401"].Description = "Unauthorized access.";
+            operation.Responses["500"].Description = "Server error.";
             return operation;
         });
 
-// POST endpoint (requires authentication)
-        endpoints.MapPost("/weatherforecast/user-endpoint", [Authorize(Policy = "ApiScope")] (WeatherForecast forecast) =>
-        {
-            return Results.Created($"/weatherforecast/user-endpoint/{forecast.Date}", forecast);
-        })
+        // General authenticated POST
+        app.MapPost("/weatherforecast/user-endpoint", [Authorize(Policy = "ApiScope")] (WeatherForecast forecast) =>
+            Results.Created($"/weatherforecast/user-endpoint/{forecast.Date}", forecast)
+        )
         .WithName("CreateWeatherForecast")
-        .Produces<WeatherForecast>(201) // Response schema
-        .Produces(400, typeof(ProblemDetails)) // Bad request
-        .Produces(401, typeof(ProblemDetails)) // Unauthorized
-        .Produces(500, typeof(ProblemDetails)) // Internal server error
+        .MapToApiVersion(1.0)
+        .MapToApiVersion(2.0)
+        .Produces<WeatherForecast>(201)
+        .Produces(400, typeof(ProblemDetails))
+        .Produces(401, typeof(ProblemDetails))
+        .Produces(429, typeof(ProblemDetails))
+        .Produces(500, typeof(ProblemDetails))
         .WithOpenApi(operation =>
         {
             operation.Summary = "Creates a new weather forecast.";
-            operation.Description = "This endpoint allows authenticated users to create a new weather forecast.";
-            operation.Responses["201"].Description = "Weather forecast created successfully.";
-            operation.Responses["400"].Description = "Bad request. The input parameters are invalid.";
-            operation.Responses["401"].Description = "Unauthorized. The user is not authenticated.";
-            operation.Responses["500"].Description = "Internal server error. Something went wrong on the server.";
-
+            operation.Description = "Authenticated users can create forecasts.";
+            operation.Responses["201"].Description = "Created.";
+            operation.Responses["400"].Description = "Invalid input.";
+            operation.Responses["401"].Description = "Unauthorized.";
+            operation.Responses["500"].Description = "Server error.";
             return operation;
         });
 
-// PUT endpoint (requires authentication)
-        endpoints.MapPut("/weatherforecast/{date}", [Authorize(Policy = "ApiScope")] (WeatherForecast updatedForecast) =>
-        {
-            return Results.Ok(updatedForecast);
-        })
+        // PUT (update) endpoint
+        app.MapPut("/weatherforecast/{date}", [Authorize(Policy = "ApiScope")] (WeatherForecast updatedForecast) =>
+            Results.Ok(updatedForecast)
+        )
         .WithName("UpdateWeatherForecast")
-        .Produces<WeatherForecast>(200) // Response schema
-        .Produces(400, typeof(ProblemDetails)) // Bad request
-        .Produces(401, typeof(ProblemDetails)) // Unauthorized
-        .Produces(404, typeof(ProblemDetails)) // Not found
-        .Produces(500, typeof(ProblemDetails)) // Internal server error
+        .MapToApiVersion(2.0)
+        .Produces<WeatherForecast>(200)
+        .Produces(400, typeof(ProblemDetails))
+        .Produces(401, typeof(ProblemDetails))
+        .Produces(404, typeof(ProblemDetails))
+        .Produces(429, typeof(ProblemDetails))
+        .Produces(500, typeof(ProblemDetails))
         .WithOpenApi(operation =>
         {
-            operation.Summary = "Updates an existing weather forecast.";
-            operation.Description = "This endpoint allows authenticated users to update an existing weather forecast.";
+            operation.Summary = "Updates an existing forecast.";
+            operation.Description = "Allows updates to a forecast by date.";
             operation.Parameters.Add(new Microsoft.OpenApi.Models.OpenApiParameter
             {
-                Name = "date (Example - non-existent)",
+                Name = "date",
                 In = Microsoft.OpenApi.Models.ParameterLocation.Path,
                 Required = true,
-                Description = "The date of the weather forecast to update. Format: yyyy-MM-dd",
+                Description = "Date of the forecast. Format: yyyy-MM-dd.",
                 Schema = new Microsoft.OpenApi.Models.OpenApiSchema
                 {
                     Type = "string",
                     Format = "date",
-                    Pattern = @"^\d{4}-\d{2}-\d{2}$" // Regex for date format
+                    Pattern = @"^\d{4}-\d{2}-\d{2}$"
                 }
             });
 
-            // RequestBody Example
             operation.RequestBody = new Microsoft.OpenApi.Models.OpenApiRequestBody
             {
                 Required = true,
                 Content = new Dictionary<string, Microsoft.OpenApi.Models.OpenApiMediaType>
                 {
-                    ["application/json"] = new Microsoft.OpenApi.Models.OpenApiMediaType
+                    ["application/json"] = new()
                     {
                         Schema = new Microsoft.OpenApi.Models.OpenApiSchema
                         {
@@ -199,72 +229,66 @@ public static class WeatherForecastEndpoints
                 }
             };
 
-            operation.Responses["200"].Description = "Weather forecast updated successfully.";
-            operation.Responses["400"].Description = "Bad request. The input parameters are invalid.";
-            operation.Responses["401"].Description = "Unauthorized. The user is not authenticated.";
-            operation.Responses["404"].Description = "Not found. The weather forecast for the specified date was not found.";
-            operation.Responses["500"].Description = "Internal server error. Something went wrong on the server.";
-
+            operation.Responses["200"].Description = "Updated.";
+            operation.Responses["400"].Description = "Bad request.";
+            operation.Responses["401"].Description = "Unauthorized.";
+            operation.Responses["404"].Description = "Not found.";
+            operation.Responses["429"].Description = "API calls quota exceeded!";
+            operation.Responses["500"].Description = "Internal server error.";
             return operation;
         });
 
-// DELETE endpoint (requires authentication)
-        endpoints.MapDelete("/weatherforecast/{date}", [Authorize(Policy = "ApiScope")] () =>
-        {
-            return Results.NoContent();
-        })
+        // DELETE endpoint
+        app.MapDelete("/weatherforecast/{date}", [Authorize(Policy = "ApiScope")] () =>
+            Results.NoContent()
+        )
         .WithName("DeleteWeatherForecast")
-        .Produces(204) // No content
-        .Produces(400, typeof(ProblemDetails)) // Bad request
-        .Produces(401, typeof(ProblemDetails)) // Unauthorized
-        .Produces(404, typeof(ProblemDetails)) // Not found
-        .Produces(500, typeof(ProblemDetails)) // Internal server error
+        .MapToApiVersion(2.0)
+        .Produces(204)
+        .Produces(400, typeof(ProblemDetails))
+        .Produces(401, typeof(ProblemDetails))
+        .Produces(404, typeof(ProblemDetails))
+        .Produces(429, typeof(ProblemDetails))
+        .Produces(500, typeof(ProblemDetails))
         .WithOpenApi(operation =>
         {
-            operation.Summary = "Deletes a weather forecast.";
-            operation.Description = "This endpoint allows authenticated users to delete a weather forecast by date.";
+            operation.Summary = "Deletes a forecast.";
+            operation.Description = "Removes a forecast by date.";
             operation.Parameters.Add(new Microsoft.OpenApi.Models.OpenApiParameter
             {
                 Name = "date",
                 In = Microsoft.OpenApi.Models.ParameterLocation.Path,
                 Required = true,
-                Description = "The date of the weather forecast to delete. Format: yyyy-MM-dd",
+                Description = "Date of forecast to delete. Format: yyyy-MM-dd.",
                 Schema = new Microsoft.OpenApi.Models.OpenApiSchema
                 {
                     Type = "string",
                     Format = "date",
-                    Pattern = @"^\d{4}-\d{2}-\d{2}$" // Regex for date format
+                    Pattern = @"^\d{4}-\d{2}-\d{2}$"
                 }
             });
 
-            operation.Responses["204"].Description = "No content. The weather forecast was deleted successfully.";
-            operation.Responses["400"].Description = "Bad request. The input parameters are invalid.";
-            operation.Responses["401"].Description = "Unauthorized. The user is not authenticated.";
-            operation.Responses["404"].Description = "Not found. The weather forecast for the specified date was not found.";
-            operation.Responses["500"].Description = "Internal server error. Something went wrong on the server.";
-            
+            operation.Responses["204"].Description = "Deleted.";
+            operation.Responses["400"].Description = "Bad request.";
+            operation.Responses["401"].Description = "Unauthorized.";
+            operation.Responses["404"].Description = "Not found.";
+            operation.Responses["429"].Description = "API calls quota exceeded!";
+            operation.Responses["500"].Description = "Server error.";
             return operation;
         });
     }
+
+    #endregion
 }
 
 /// <summary>
-/// Represents a weather forecast.
+/// Represents a weather forecast record.
 /// </summary>
-/// <remarks>
-/// Initializes a new instance of the <see cref="WeatherForecast"/> class.
-/// </remarks>
-/// <param name="date"></param>
-/// <param name="temperatureC"></param>
-/// <param name="summary"></param>
+/// <param name="date">The date of the forecast.</param>
+/// <param name="temperatureC">Temperature in Celsius.</param>
+/// <param name="summary">A short description of the weather.</param>
 public class WeatherForecast(DateOnly date, int temperatureC, string? summary)
 {
-
-    /// <summary>
-    /// Gets the temperature in Fahrenheit.
-    /// </summary>
-    public int TemperatureF { get; } = 32 + (int)(temperatureC / 0.5556);
-
     /// <summary>
     /// Gets the date of the weather forecast.
     /// </summary>
@@ -273,16 +297,19 @@ public class WeatherForecast(DateOnly date, int temperatureC, string? summary)
     /// <summary>
     /// Gets the temperature in Celsius.
     /// </summary>
-    [Range(-50, 50)] // Range for TemperatureC
-    [DefaultValue(15)] // Default value for TemperatureC
+    [Range(-50, 50)]
+    [DefaultValue(15)]
     public int TemperatureC { get; } = temperatureC;
 
     /// <summary>
-    /// Gets the summary of the weather forecast.
+    /// Gets the temperature in Fahrenheit.
     /// </summary>
-    [StringLength(100)] // Max length for Summary
-    [DefaultValue("Default summary")] // Default value for Summary
+    public int TemperatureF { get; } = 32 + (int)(temperatureC / 0.5556);
+
+    /// <summary>
+    /// Gets the summary of the forecast.
+    /// </summary>
+    [StringLength(100)]
+    [DefaultValue("Default summary")]
     public string? Summary { get; } = summary;
-
-
 }

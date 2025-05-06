@@ -8,11 +8,28 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Duende.IdentityServer" Version="7.2.1" />
+    <!-- Versioning for ASP.NET Core HTTP APIs -->
+    <PackageReference Include="Asp.Versioning.Http" Version="8.1.0" />
+
+    <!-- Versioning for ASP.NET Core MVC APIs -->
+    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.0" />
+
+    <!-- Rate limiting for ASP.NET Core -->
+    <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
+
+    <!-- IdentityServer package for authentication and authorization -->
+    <PackageReference Include="Duende.IdentityServer" Version="7.2.1" /> 
+
+    <!-- JWT Bearer authentication package for ASP.NET Core -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.4" />
-    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0" />
+
+    <!-- For OpenAPI support in ASP.NET Core -->
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.3" />
+
+    <!-- For Swagger generation and UI in ASP.NET Core -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.1" />
+
+
   </ItemGroup>
 
 </Project>
