@@ -1,6 +1,5 @@
 using Asp.Versioning.ApiExplorer;
 using Asp.Versioning.Conventions;
-using AspNetCoreRateLimit;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +15,9 @@ builder.Services.AddRateLimiting(builder.Configuration); // Configure rate limit
 
 // ==================== Application Configuration ====================
 var app = builder.Build();
+
+// Enable rate limiting middleware
+app.UseRateLimiter(); 
 
 // Define the API version set
 var versionSet = app.NewApiVersionSet()
@@ -63,7 +65,6 @@ app.UseCors("AllowSwaggerUI"); // Apply the CORS policy
 //app.UseIdentityServer(); // Enable IdentityServer middleware	
 //app.UseAuthentication(); // Enable authentication middleware
 //app.UseAuthorization(); // Enable authorization middleware
-app.UseIpRateLimiting(); // Middleware for rate limit
 
 
 

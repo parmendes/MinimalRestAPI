@@ -14,9 +14,6 @@
     <!-- Versioning for ASP.NET Core MVC APIs -->
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.0" />
 
-    <!-- Rate limiting for ASP.NET Core -->
-    <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
-
     <!-- IdentityServer package for authentication and authorization -->
     <PackageReference Include="Duende.IdentityServer" Version="7.2.1" /> 
 

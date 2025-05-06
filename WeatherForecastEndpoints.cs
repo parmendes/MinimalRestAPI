@@ -62,6 +62,7 @@ public static class WeatherForecastEndpoints
         .WithName("GetWeatherForecast")
         .MapToApiVersion(1.0)
         .MapToApiVersion(2.0)
+        .RequireRateLimiting("FivePerMinute") // Apply rate limiting policy
         .Produces<WeatherForecast[]>(200)
         .Produces(400, typeof(ProblemDetails))
         .Produces(429, typeof(ProblemDetails))
@@ -72,6 +73,7 @@ public static class WeatherForecastEndpoints
             operation.Description = "Returns a list of weather forecasts with temperatures and summaries.";
             operation.Responses["200"].Description = "Successful operation.";
             operation.Responses["400"].Description = "Invalid temperature range.";
+            operation.Responses["429"].Description = "API calls quota exceeded!";
             operation.Responses["500"].Description = "Internal server error.";
             return operation;
         });
