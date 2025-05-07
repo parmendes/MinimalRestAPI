@@ -44,15 +44,9 @@ if (app.Environment.IsDevelopment())
 
         foreach (ApiVersionDescription desc in description)
         {
-            options.SwaggerEndpoint($"/swagger/{desc.GroupName}/swagger.json", desc.GroupName.ToUpperInvariant());
-            options.SwaggerEndpoint($"/swagger/{desc.GroupName}/swagger.yaml", desc.GroupName.ToUpperInvariant()); //Serve the YAML file.
+            options.SwaggerEndpoint($"/swagger/{desc.GroupName}/swagger.json", string.Concat(desc.GroupName.ToUpperInvariant(), "(JSON)"));
+            options.SwaggerEndpoint($"/swagger/{desc.GroupName}/swagger.yaml", string.Concat(desc.GroupName.ToUpperInvariant(), "(YAML)")); //Serve the YAML file.
         }
-
-        // options.SwaggerEndpoint("/swagger/v1/swagger.yaml", "MinimalRestAPI v1 (YAML)"); //Serve the YAML file.
-        // options.SwaggerEndpoint("/swagger/v1/swagger.json", "MinimalRestAPI v1 (JSON)");
-
-        // options.SwaggerEndpoint("/swagger/v2/swagger.json", "MinimalRestAPI v2 (JSON)");
-        // options.SwaggerEndpoint("/swagger/v2/swagger.yaml", "MinimalRestAPI v2 (YAML)"); //Serve the YAML file.
         
         // c.OAuthClientId("minimalrestapi-client");
         // c.OAuthClientSecret("your-client-secret");
