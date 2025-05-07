@@ -26,13 +26,15 @@ var versionSet = app.NewApiVersionSet()
     .ReportApiVersions() // Report API versions in the response headers
     .Build();
 
+// Define the route group for versioned endpoints
 RouteGroupBuilder versionedGroup = app.MapGroup("/api/v{version:apiVersion}/weatherforecast")
             .WithApiVersionSet(versionSet)
             .RequireRateLimiting("weatherforecast") // Apply rate limiting policy
             .WithTags("WeatherForecast") // Tag for grouping in Swagger UI
             ;
 
-versionedGroup.MapWeatherForecastEndpoints(); // Register the WeatherForecast endpoints
+// Map weather forecast endpoints to the route group
+versionedGroup.MapWeatherForecastEndpoints(); 
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -45,7 +47,7 @@ if (app.Environment.IsDevelopment())
         foreach (ApiVersionDescription desc in description)
         {
             options.SwaggerEndpoint($"/swagger/{desc.GroupName}/swagger.json", string.Concat(desc.GroupName.ToUpperInvariant(), "(JSON)"));
-            options.SwaggerEndpoint($"/swagger/{desc.GroupName}/swagger.yaml", string.Concat(desc.GroupName.ToUpperInvariant(), "(YAML)")); //Serve the YAML file.
+            options.SwaggerEndpoint($"/swagger/{desc.GroupName}/swagger.yaml", string.Concat(desc.GroupName.ToUpperInvariant(), "(YAML)"));
         }
         
         // c.OAuthClientId("minimalrestapi-client");
