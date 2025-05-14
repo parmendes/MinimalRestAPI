@@ -35,7 +35,7 @@ public static class WeatherForecastEndpoints
         var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching" };
 
         // Versioned GET endpoint for 5-day forecast (v1 and v2)
-        app.MapGet("/weatherforecast", [AllowAnonymous] (
+        app.MapGet("", [AllowAnonymous] (
             [FromHeader(Name = "X-My-Custom-Header")] string? myHeaderValue,
             [FromQuery, DefaultValue(-20)] int minTemperature,
             [FromQuery, DefaultValue(55)] int maxTemperature) =>
@@ -79,7 +79,7 @@ public static class WeatherForecastEndpoints
         });
 
         // New 3-day forecast only for version 2
-        app.MapGet("/weatherforecast3Days", [AllowAnonymous] () =>
+        app.MapGet("/3Days", [AllowAnonymous] () =>
         {
             var shortSummaries = new[] { "Cold", "Warm", "Hot" };
 
@@ -107,7 +107,7 @@ public static class WeatherForecastEndpoints
         });
 
         // Legacy endpoint (Deprecated)
-        app.MapGet("/weatherforecast/legacy", [AllowAnonymous] () =>
+        app.MapGet("/legacy", [AllowAnonymous] () =>
             Results.Ok("This is a legacy endpoint.")
         )
         .WithName("GetLegacyWeatherForecast")
@@ -131,8 +131,8 @@ public static class WeatherForecastEndpoints
     private static void MapAuthenticatedEndpoints(IEndpointRouteBuilder app)
     {
         // Admin-only POST
-        app.MapPost("/weatherforecast/admin-endpoint", [Authorize(Policy = "AdminOnly")] (WeatherForecast forecast) =>
-            Results.Created($"/weatherforecast/admin-endpoint/{forecast.Date}", forecast)
+        app.MapPost("/admin-endpoint", [Authorize(Policy = "AdminOnly")] (WeatherForecast forecast) =>
+            Results.Created($"/admin-endpoint/{forecast.Date}", forecast)
         )
         .WithName("CreateWeatherForecastADMIN")
         .MapToApiVersion(1.0)
@@ -154,8 +154,8 @@ public static class WeatherForecastEndpoints
         });
 
         // General authenticated POST
-        app.MapPost("/weatherforecast/user-endpoint", [Authorize(Policy = "ApiScope")] (WeatherForecast forecast) =>
-            Results.Created($"/weatherforecast/user-endpoint/{forecast.Date}", forecast)
+        app.MapPost("/user-endpoint", [Authorize(Policy = "ApiScope")] (WeatherForecast forecast) =>
+            Results.Created($"/user-endpoint/{forecast.Date}", forecast)
         )
         .WithName("CreateWeatherForecast")
         .MapToApiVersion(1.0)
@@ -177,7 +177,7 @@ public static class WeatherForecastEndpoints
         });
 
         // PUT (update) endpoint
-        app.MapPut("/weatherforecast/{date}", [Authorize(Policy = "ApiScope")] (WeatherForecast updatedForecast) =>
+        app.MapPut("/{date}", [Authorize(Policy = "ApiScope")] (WeatherForecast updatedForecast) =>
             Results.Ok(updatedForecast)
         )
         .WithName("UpdateWeatherForecast")
@@ -206,7 +206,7 @@ public static class WeatherForecastEndpoints
                 }
             });
 
-            operation.RequestBody = new Microsoft.OpenApi.Models.OpenApiRequestBody
+            /* operation.RequestBody = new Microsoft.OpenApi.Models.OpenApiRequestBody
             {
                 Required = true,
                 Content = new Dictionary<string, Microsoft.OpenApi.Models.OpenApiMediaType>
@@ -221,6 +221,8 @@ public static class WeatherForecastEndpoints
                                 Id = "WeatherForecast"
                             }
                         },
+                        // Using this example will override what is defined in the WeatherForecast when showing the the Example of the request body.
+                        // The schema, however, continues to show what is in the model.
                         Example = new Microsoft.OpenApi.Any.OpenApiObject
                         {
                             ["date"] = new Microsoft.OpenApi.Any.OpenApiString("2025-04-24"),
@@ -229,7 +231,7 @@ public static class WeatherForecastEndpoints
                         }
                     }
                 }
-            };
+            }; */
 
             operation.Responses["200"].Description = "Updated.";
             operation.Responses["400"].Description = "Bad request.";
@@ -241,7 +243,7 @@ public static class WeatherForecastEndpoints
         });
 
         // DELETE endpoint
-        app.MapDelete("/weatherforecast/{date}", [Authorize(Policy = "ApiScope")] () =>
+        app.MapDelete("/{date}", [Authorize(Policy = "ApiScope")] () =>
             Results.NoContent()
         )
         .WithName("DeleteWeatherForecast")
@@ -315,3 +317,5 @@ public class WeatherForecast(DateOnly date, int temperatureC, string? summary)
     [DefaultValue("Default summary")]
     public string? Summary { get; } = summary;
 }
+
+

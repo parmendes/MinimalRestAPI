@@ -38,61 +38,64 @@ public class ConfigureSwaggerGenOptions : IConfigureNamedOptions<SwaggerGenOptio
         }
 
         // Add security definition for OAuth2
-            // This will allow the Swagger UI to show the authorization button for endpoints that require authentication
-            options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+        // This will allow the Swagger UI to show the authorization button for endpoints that require authentication
+        options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.OAuth2,
+            Flows = new OpenApiOAuthFlows
             {
-                Type = SecuritySchemeType.OAuth2,
-                Flows = new OpenApiOAuthFlows
+                ClientCredentials = new OpenApiOAuthFlow
                 {
-                    ClientCredentials = new OpenApiOAuthFlow
+                    TokenUrl = new Uri("https://localhost:5001/connect/token"), // IdentityServer token endpoint
+                    Scopes = new Dictionary<string, string>
                     {
-                        TokenUrl = new Uri("https://localhost:5001/connect/token"), // IdentityServer token endpoint
-                        Scopes = new Dictionary<string, string>
-                        {
-                            { "api1", "Access MinimalRestAPI" }
-                        }
+                        { "api1", "Access MinimalRestAPI" }
                     }
                 }
-            });
+            }
+        });
 
-            // Map ProblemDetails to OpenAPI schema
-            // This will ensure that the ProblemDetails object is correctly represented in the Swagger UI
-            options.MapType<ProblemDetails>(() => new OpenApiSchema
+        // Map ProblemDetails to OpenAPI schema
+        // This will ensure that the ProblemDetails object is correctly represented in the Swagger UI
+        // This adds the schema to each error that produces this type, but there is no reference to the name "ProblemDetails".
+        // Additionally, wih this, the ProblemDetails does not appear in the section "Schemas" at the end of the file.
+        /* options.MapType<ProblemDetails>(() => new OpenApiSchema
+        {
+            Type = "object",
+            Properties = new Dictionary<string, OpenApiSchema>
             {
-                Type = "object",
-                Properties = new Dictionary<string, OpenApiSchema>
-                {
-                    ["type"] = new OpenApiSchema { Type = "string" },
-                    ["title"] = new OpenApiSchema { Type = "string" },
-                    ["status"] = new OpenApiSchema { Type = "integer", Format = "int32" },
-                    ["detail"] = new OpenApiSchema { Type = "string" },
-                    ["instance"] = new OpenApiSchema { Type = "string" }
-                }
-            });
+                ["type"] = new OpenApiSchema { Type = "string" },
+                ["title"] = new OpenApiSchema { Type = "string" },
+                ["status"] = new OpenApiSchema { Type = "integer", Format = "int32" },
+                ["detail"] = new OpenApiSchema { Type = "string" },
+                ["instance"] = new OpenApiSchema { Type = "string" }
+            }
+        }); */
 
-            // Add the security requirement for the API
-            // This will require the client to provide a token for the "api1" scope
-            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        // Add the security requirement for the API
+        // This will require the client to provide a token for the "api1" scope
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
             {
+                new OpenApiSecurityScheme
                 {
-                    new OpenApiSecurityScheme
+                    Reference = new OpenApiReference
                     {
-                        Reference = new OpenApiReference
-                        {
-                            Type = ReferenceType.SecurityScheme,
-                            Id = "oauth2"
-                        }
-                    },
-                    new[] { "api1" }
-                }
-            });
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "oauth2"
+                    }
+                },
+                new[] { "api1" }
+            }
+        });
 
-            // Add the AuthorizeCheckOperationFilter to check for authorization attributes on endpoints
-            // This will ensure that the Swagger UI shows the authorization button for endpoints that require authentication
-            options.OperationFilter<AuthorizeCheckOperationFilter>();    
+        // Add the AuthorizeCheckOperationFilter to check for authorization attributes on endpoints
+        // This will ensure that the Swagger UI shows the authorization button for endpoints that require authentication
+        options.OperationFilter<AuthorizeCheckOperationFilter>();    
 
-            var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-            options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+        var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+
     }
 
     private OpenApiInfo CreateInfoForApiVersion(ApiVersionDescription description)
