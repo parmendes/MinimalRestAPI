@@ -1,9 +1,7 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using Asp.Versioning.Builder;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 
 /// <summary>
 /// Provides extension methods to map WeatherForecast-related endpoints.
@@ -34,11 +32,63 @@ public static class WeatherForecastEndpoints
     {
         var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching" };
 
+        // ######################################################################
         // Versioned GET endpoint for 5-day forecast (v1 and v2)
         app.MapGet("", [AllowAnonymous] (
             [FromHeader(Name = "X-My-Custom-Header")] string? myHeaderValue,
             [FromQuery, DefaultValue(-20)] int minTemperature,
             [FromQuery, DefaultValue(55)] int maxTemperature) =>
+            GetWeatherForecast(minTemperature, maxTemperature))
+        .WithName("GetWeatherForecast") // This is not visible in Swagger UI
+        .MapToApiVersion(1.0)
+        .MapToApiVersion(2.0)
+        .RequireRateLimiting("FivePerMinute") // Apply rate limiting policy
+        .Produces<WeatherForecast[]>(200)
+        .Produces<ProblemDetails>(400)
+        .Produces<ProblemDetails>(429)
+        .Produces<ProblemDetails>(500)
+        .WithOpenApi(operation =>
+        {
+            operation.Summary = "Retrieves the weather forecast for the next 5 days.";
+            operation.Description = "Returns a list of weather forecasts with temperatures and summaries.";
+            operation.Responses["200"].Description = "Successful operation.";
+            operation.Responses["400"].Description = "Invalid temperature range.";
+            operation.Responses["429"].Description = "API calls quota exceeded!";
+            operation.Responses["500"].Description = "Internal server error.";
+            return operation;
+        });
+
+        // ######################################################################
+        // New 3-day forecast only for version 2
+        app.MapGet("/3Days", [AllowAnonymous] () => GetWeatherForecast3Days())
+        .WithName("GetWeatherForecast3Days")
+        .MapToApiVersion(2.0)
+        .Produces<WeatherForecast[]>(200)
+        .Produces<ProblemDetails>(429)
+        .Produces<ProblemDetails>(500)
+        .WithOpenApi(operation =>
+        {
+            operation.Summary = "Retrieves a short-term 3-day weather forecast.";
+            operation.Description = "Newer version with limited 3-day forecast data.";
+            return operation;
+        });
+
+        // ######################################################################
+        // Legacy endpoint (Deprecated)
+        app.MapGet("/legacy", [AllowAnonymous] () =>
+            Results.Ok("This is a legacy endpoint.")
+        )
+        .WithName("GetLegacyWeatherForecast")
+        .MapToApiVersion(1.0)
+        .WithOpenApi(operation =>
+        {
+            operation.Deprecated = true;
+            operation.Summary = "Legacy endpoint (deprecated).";
+            operation.Description = "This endpoint is deprecated. Use '/weatherforecast' instead.";
+            return operation;
+        });
+
+        IResult GetWeatherForecast(int minTemperature, int maxTemperature)
         {
             if (minTemperature >= maxTemperature)
             {
@@ -58,28 +108,9 @@ public static class WeatherForecastEndpoints
                 )).ToArray();
 
             return Results.Ok(forecast);
-        })
-        .WithName("GetWeatherForecast")
-        .MapToApiVersion(1.0)
-        .MapToApiVersion(2.0)
-        .RequireRateLimiting("FivePerMinute") // Apply rate limiting policy
-        .Produces<WeatherForecast[]>(200)
-        .Produces(400, typeof(ProblemDetails))
-        .Produces(429, typeof(ProblemDetails))
-        .Produces(500, typeof(ProblemDetails))
-        .WithOpenApi(operation =>
-        {
-            operation.Summary = "Retrieves the weather forecast for the next 5 days.";
-            operation.Description = "Returns a list of weather forecasts with temperatures and summaries.";
-            operation.Responses["200"].Description = "Successful operation.";
-            operation.Responses["400"].Description = "Invalid temperature range.";
-            operation.Responses["429"].Description = "API calls quota exceeded!";
-            operation.Responses["500"].Description = "Internal server error.";
-            return operation;
-        });
+        }
 
-        // New 3-day forecast only for version 2
-        app.MapGet("/3Days", [AllowAnonymous] () =>
+        IResult GetWeatherForecast3Days()
         {
             var shortSummaries = new[] { "Cold", "Warm", "Hot" };
 
@@ -91,34 +122,7 @@ public static class WeatherForecastEndpoints
                 )).ToArray();
 
             return Results.Ok(forecast);
-        })
-        .WithName("GetWeatherForecast3Days")
-        .MapToApiVersion(2.0)
-        .Produces<WeatherForecast[]>(200)
-        .Produces(429, typeof(ProblemDetails))
-        .Produces(500, typeof(ProblemDetails))
-        .WithOpenApi(operation =>
-        {
-            operation.Summary = "Retrieves a short-term 3-day weather forecast.";
-            operation.Description = "Newer version with limited 3-day forecast data.";
-            operation.Responses["200"].Description = "Successful operation.";
-            operation.Responses["500"].Description = "Internal server error.";
-            return operation;
-        });
-
-        // Legacy endpoint (Deprecated)
-        app.MapGet("/legacy", [AllowAnonymous] () =>
-            Results.Ok("This is a legacy endpoint.")
-        )
-        .WithName("GetLegacyWeatherForecast")
-        .MapToApiVersion(1.0)
-        .WithOpenApi(operation =>
-        {
-            operation.Deprecated = true;
-            operation.Summary = "Legacy endpoint (deprecated).";
-            operation.Description = "This endpoint is deprecated. Use '/weatherforecast' instead.";
-            return operation;
-        });
+        }
     }
 
     #endregion
@@ -130,6 +134,7 @@ public static class WeatherForecastEndpoints
     /// </summary>
     private static void MapAuthenticatedEndpoints(IEndpointRouteBuilder app)
     {
+        // ######################################################################
         // Admin-only POST
         app.MapPost("/admin-endpoint", [Authorize(Policy = "AdminOnly")] (WeatherForecast forecast) =>
             Results.Created($"/admin-endpoint/{forecast.Date}", forecast)
@@ -138,10 +143,10 @@ public static class WeatherForecastEndpoints
         .MapToApiVersion(1.0)
         .MapToApiVersion(2.0)
         .Produces<WeatherForecast>(201)
-        .Produces(400, typeof(ProblemDetails))
-        .Produces(401, typeof(ProblemDetails))
-        .Produces(429, typeof(ProblemDetails))
-        .Produces(500, typeof(ProblemDetails))
+        .Produces<ProblemDetails>(400)
+        .Produces<ProblemDetails>(401)
+        .Produces<ProblemDetails>(429)
+        .Produces<ProblemDetails>(500)
         .WithOpenApi(operation =>
         {
             operation.Summary = "Creates a new weather forecast (Admin only).";
@@ -153,6 +158,7 @@ public static class WeatherForecastEndpoints
             return operation;
         });
 
+        // ######################################################################
         // General authenticated POST
         app.MapPost("/user-endpoint", [Authorize(Policy = "ApiScope")] (WeatherForecast forecast) =>
             Results.Created($"/user-endpoint/{forecast.Date}", forecast)
@@ -161,10 +167,10 @@ public static class WeatherForecastEndpoints
         .MapToApiVersion(1.0)
         .MapToApiVersion(2.0)
         .Produces<WeatherForecast>(201)
-        .Produces(400, typeof(ProblemDetails))
-        .Produces(401, typeof(ProblemDetails))
-        .Produces(429, typeof(ProblemDetails))
-        .Produces(500, typeof(ProblemDetails))
+        .Produces<ProblemDetails>(400)
+        .Produces<ProblemDetails>(401)
+        .Produces<ProblemDetails>(429)
+        .Produces<ProblemDetails>(500)
         .WithOpenApi(operation =>
         {
             operation.Summary = "Creates a new weather forecast.";
@@ -176,6 +182,7 @@ public static class WeatherForecastEndpoints
             return operation;
         });
 
+        // ######################################################################
         // PUT (update) endpoint
         app.MapPut("/{date}", [Authorize(Policy = "ApiScope")] (WeatherForecast updatedForecast) =>
             Results.Ok(updatedForecast)
@@ -183,28 +190,16 @@ public static class WeatherForecastEndpoints
         .WithName("UpdateWeatherForecast")
         .MapToApiVersion(2.0)
         .Produces<WeatherForecast>(200)
-        .Produces(400, typeof(ProblemDetails))
-        .Produces(401, typeof(ProblemDetails))
-        .Produces(404, typeof(ProblemDetails))
-        .Produces(429, typeof(ProblemDetails))
-        .Produces(500, typeof(ProblemDetails))
+        .Produces<ProblemDetails>(400)
+        .Produces<ProblemDetails>(401)
+        .Produces<ProblemDetails>(404)
+        .Produces<ProblemDetails>(429)
+        .Produces<ProblemDetails>(500)
         .WithOpenApi(operation =>
         {
             operation.Summary = "Updates an existing forecast.";
             operation.Description = "Allows updates to a forecast by date.";
-            operation.Parameters.Add(new Microsoft.OpenApi.Models.OpenApiParameter
-            {
-                Name = "date",
-                In = Microsoft.OpenApi.Models.ParameterLocation.Path,
-                Required = true,
-                Description = "Date of the forecast. Format: yyyy-MM-dd.",
-                Schema = new Microsoft.OpenApi.Models.OpenApiSchema
-                {
-                    Type = "string",
-                    Format = "date",
-                    Pattern = @"^\d{4}-\d{2}-\d{2}$"
-                }
-            });
+            AddDateAsParameter(operation);
 
             /* operation.RequestBody = new Microsoft.OpenApi.Models.OpenApiRequestBody
             {
@@ -242,6 +237,7 @@ public static class WeatherForecastEndpoints
             return operation;
         });
 
+        // ######################################################################
         // DELETE endpoint
         app.MapDelete("/{date}", [Authorize(Policy = "ApiScope")] () =>
             Results.NoContent()
@@ -249,28 +245,16 @@ public static class WeatherForecastEndpoints
         .WithName("DeleteWeatherForecast")
         .MapToApiVersion(2.0)
         .Produces(204)
-        .Produces(400, typeof(ProblemDetails))
-        .Produces(401, typeof(ProblemDetails))
-        .Produces(404, typeof(ProblemDetails))
-        .Produces(429, typeof(ProblemDetails))
-        .Produces(500, typeof(ProblemDetails))
+        .Produces<ProblemDetails>(400)
+        .Produces<ProblemDetails>(401)
+        .Produces<ProblemDetails>(404)
+        .Produces<ProblemDetails>(429)
+        .Produces<ProblemDetails>(500)
         .WithOpenApi(operation =>
         {
             operation.Summary = "Deletes a forecast.";
             operation.Description = "Removes a forecast by date.";
-            operation.Parameters.Add(new Microsoft.OpenApi.Models.OpenApiParameter
-            {
-                Name = "date",
-                In = Microsoft.OpenApi.Models.ParameterLocation.Path,
-                Required = true,
-                Description = "Date of forecast to delete. Format: yyyy-MM-dd.",
-                Schema = new Microsoft.OpenApi.Models.OpenApiSchema
-                {
-                    Type = "string",
-                    Format = "date",
-                    Pattern = @"^\d{4}-\d{2}-\d{2}$"
-                }
-            });
+            AddDateAsParameter(operation);
 
             operation.Responses["204"].Description = "Deleted.";
             operation.Responses["400"].Description = "Bad request.";
@@ -279,6 +263,23 @@ public static class WeatherForecastEndpoints
             operation.Responses["429"].Description = "API calls quota exceeded!";
             operation.Responses["500"].Description = "Server error.";
             return operation;
+        });
+    }
+
+    private static void AddDateAsParameter(Microsoft.OpenApi.Models.OpenApiOperation operation)
+    {
+         operation.Parameters.Add(new Microsoft.OpenApi.Models.OpenApiParameter
+        {
+            Name = "date",
+            In = Microsoft.OpenApi.Models.ParameterLocation.Path,
+            Required = true,
+            Description = "Date of the forecast. Format: yyyy-MM-dd.",
+            Schema = new Microsoft.OpenApi.Models.OpenApiSchema
+            {
+                Type = "string",
+                Format = "date",
+                Pattern = @"^\d{4}-\d{2}-\d{2}$"
+            }
         });
     }
 

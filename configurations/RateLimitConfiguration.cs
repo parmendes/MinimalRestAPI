@@ -46,7 +46,7 @@ public static class AddRateLimitConfiguration
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
                 RateLimitPartition.GetNoLimiter<string>("global"));
 
-            // Define a rate limit policy for the "weatherforecast" endpoint
+            // Define a rate limit policy for the Get "weatherforecast" endpoint
             // This policy allows 5 requests every minute
             // The partition key is based on the client's IP address
             options.AddPolicy("FivePerMinute", context =>

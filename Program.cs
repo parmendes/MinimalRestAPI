@@ -29,7 +29,7 @@ var versionSet = app.NewApiVersionSet()
 // Define the route group for versioned endpoints
 RouteGroupBuilder versionedGroup = app.MapGroup("/api/v{version:apiVersion}/weatherforecast")
             .WithApiVersionSet(versionSet)
-            .RequireRateLimiting("weatherforecast") // Apply rate limiting policy
+            //.RequireRateLimiting("weatherforecast") // Apply rate limiting policy to all endpoints. It is superseded by policies applied in the endpoints.
             .WithTags("WeatherForecast") // Tag for grouping in Swagger UI
             ;
 
