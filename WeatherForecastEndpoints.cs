@@ -200,34 +200,6 @@ public static class WeatherForecastEndpoints
             operation.Summary = "Updates an existing forecast.";
             operation.Description = "Allows updates to a forecast by date.";
             AddDateAsParameter(operation);
-
-            /* operation.RequestBody = new Microsoft.OpenApi.Models.OpenApiRequestBody
-            {
-                Required = true,
-                Content = new Dictionary<string, Microsoft.OpenApi.Models.OpenApiMediaType>
-                {
-                    ["application/json"] = new()
-                    {
-                        Schema = new Microsoft.OpenApi.Models.OpenApiSchema
-                        {
-                            Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                            {
-                                Type = Microsoft.OpenApi.Models.ReferenceType.Schema,
-                                Id = "WeatherForecast"
-                            }
-                        },
-                        // Using this example will override what is defined in the WeatherForecast when showing the the Example of the request body.
-                        // The schema, however, continues to show what is in the model.
-                        Example = new Microsoft.OpenApi.Any.OpenApiObject
-                        {
-                            ["date"] = new Microsoft.OpenApi.Any.OpenApiString("2025-04-24"),
-                            ["temperatureC"] = new Microsoft.OpenApi.Any.OpenApiInteger(30),
-                            ["summary"] = new Microsoft.OpenApi.Any.OpenApiString("Partly Cloudy")
-                        }
-                    }
-                }
-            }; */
-
             operation.Responses["200"].Description = "Updated.";
             operation.Responses["400"].Description = "Bad request.";
             operation.Responses["401"].Description = "Unauthorized.";
